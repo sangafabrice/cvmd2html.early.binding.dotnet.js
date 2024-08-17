@@ -2,13 +2,6 @@
  * @file WMI classes as inspired by mgmclassgen.exe.
  * @version 0.0.1
  */
-import System;
-import System.Diagnostics;
-import System.Runtime.InteropServices;
-import System.Reflection;
-import WbemScripting;
-
-[assembly: AssemblyTitle('Win32_Process WIM')]
 
 package ROOT.CIMV2.WIN32 {
 
@@ -37,10 +30,24 @@ package ROOT.CIMV2.WIN32 {
     }
 
     /**
-     * Use-case specific method. ProcessStartupInformation is made option.
+     * Use-case specific method. ProcessStartupInformation is made optional.
      */
     public static function Create(CommandLine: String): uint {
       return Create(CommandLine, ProcessStartup.CreateInstance());
+    }
+
+    /**
+     * Wait for the process exit.
+     * @param {number} ProcessId is the process identifier.
+     */
+    public static function WaitForExit(ProcessId: uint) {
+      var wmiService: SWbemServices = (new SWbemLocatorClass()).ConnectServer();
+      var monikerPath: String = 'Win32_Process=' + ProcessId;
+      try {
+        while (wmiService.Get(monikerPath)) { }
+      } catch (error) { }
+      Marshal.FinalReleaseComObject(wmiService);
+      wmiService = null;
     }
   }
 
@@ -55,13 +62,6 @@ package ROOT.CIMV2.WIN32 {
       startInfo = (new SWbemLocatorClass()).ConnectServer().Get('Win32_ProcessStartup').SpawnInstance_();
       startInfo.Properties_.Item('ShowWindow').Value = WINDOW_STYLE_HIDDEN;
       return startInfo;
-    }
-  }
-
-  internal abstract class Util {
-
-    public static function GetMethodName(stackTrace: StackTrace): String {
-      return stackTrace.GetFrame(0).GetMethod().Name;
     }
   }
 }

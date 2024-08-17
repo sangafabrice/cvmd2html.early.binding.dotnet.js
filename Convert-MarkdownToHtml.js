@@ -5,15 +5,6 @@
  * when the user clicks on the shortcut menu.
  * @version 0.0.1
  */
-import System;
-import System.Runtime.InteropServices;
-import System.Reflection;
-import Shell32;
-import IWshRuntimeLibrary;
-import ROOT.CIMV2;
-import ROOT.CIMV2.WIN32;
-
-[assembly: AssemblyTitle('CvMd2Html Launcher')]
 
 /**
  * The parameters and arguments.
@@ -37,17 +28,6 @@ if (param.Set || param.Unset) {
   var HKCU = 0x80000001;
   var VERB_KEY = 'SOFTWARE\\Classes\\SystemFileAssociations\\.md\\shell\\cthtml';
   if (param.Set) {
-    var shortcutIconPath = ChangeScriptExtension('.ico');
-    // Create the link with the partial "arguments" string.
-    var linkPath = ChangeScriptExtension('.lnk');
-    (new FileSystemObjectClass()).CreateTextFile(linkPath).Close();
-    var link: ShellLinkObject = GetCustomIconLink(linkPath);
-    link.Path = GetPwshPath();
-    link.Arguments = GetCustomIconLinkArguments();
-    link.SetIconLocation(shortcutIconPath, 0);
-    link.Save();
-    Marshal.FinalReleaseComObject(link);
-    link = null;
     // Configure the shortcut menu in the registry.
     var COMMAND_KEY = VERB_KEY + '\\command';
     var command = Format('"{0}" /Markdown:"%1"', param.ApplicationPath);
@@ -58,7 +38,7 @@ if (param.Set || param.Unset) {
     if (param.NoIcon) {
       StdRegProv.DeleteValue(HKCU, VERB_KEY, iconValueName);
     } else {
-      StdRegProv.SetStringValue(HKCU, VERB_KEY, iconValueName, shortcutIconPath);
+      StdRegProv.SetStringValue(HKCU, VERB_KEY, iconValueName, ChangeScriptExtension('.ico'));
     }
   } else if (param.Unset) {
     // Remove the shortcut menu.
@@ -76,11 +56,29 @@ Quit(1);
  * @param {string} markdown is the input markdown path argument.
  */
 function StartWith(markdown) {
-  var linkPath = ChangeScriptExtension('.lnk');
-  if (!IsLinkReady(GetCustomIconLink(linkPath))) {
-    return;
-  }
-  Process.Create(Format('C:\\Windows\\System32\\cmd.exe /d /c ""{0}" "{1}""', [linkPath, markdown]));
+  var linkPath = GetDynamicLinkPathWith(markdown);
+  Process.WaitForExit(Process.Create(Format('C:\\Windows\\System32\\cmd.exe /d /c "{0}"', linkPath)));
+  (new FileSystemObjectClass()).DeleteFile(linkPath, true);
+}
+
+/**
+ * Save and get the dynamic link.
+ * @param {string} markdown is the input markdown path argument.
+ * @returns {string} the link path.
+ */
+function GetDynamicLinkPathWith(markdown) {
+  var tempDir = (new WshShellClass()).ExpandEnvironmentStrings('%TEMP%');
+  var tempLinkName = IGenScriptletTLib.GUID + '.tmp.lnk';
+  var linkPath = Format('{0}\\{1}', [tempDir, tempLinkName]);
+  (new FileSystemObjectClass()).CreateTextFile(linkPath).Close();
+  var link: ShellLinkObject = (new ShellClass()).NameSpace(tempDir).ParseName(tempLinkName).GetLink;
+  link.Path = GetPwshPath();
+  link.Arguments = Format('-ep Bypass -nop -w Hidden -f "{0}" -Markdown "{1}"', [ChangeScriptExtension('.ps1'), markdown]);
+  link.SetIconLocation(ChangeScriptExtension('.ico'), 0);
+  link.Save();
+  Marshal.FinalReleaseComObject(link);
+  link = null;
+  return linkPath;
 }
 
 /**
@@ -101,43 +99,6 @@ function ChangeScriptExtension(extension) {
 function GetPwshPath() {
   // The HKLM registry subkey stores the PowerShell Core application path.
   return StdRegProv.GetStringValue(null, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\pwsh.exe', null);
-}
-
-/**
- * Check the link target command.
- * @param {object} link is the shortcut link.
- * @param {string} link.Path is the path to the runner.
- * @param {string} link.Arguments is the target command line list of arguments.
- * @returns {boolean} True if the target command is as expected, false otherwise.
- */
-function IsLinkReady(link: ShellLinkObject) {
-  var format = '{0} {1}';
-  return Format(format, [link.Path, link.Arguments]).toLowerCase() == Format(format, [GetPwshPath(), GetCustomIconLinkArguments()]).toLowerCase();
-}
-
-/**
- * Get the custom icon link object from its path.
- * @param {string} linkPath is the custom icon link path.
- * @returns {object} the specified link file object.
- */
-function GetCustomIconLink(linkPath): ShellLinkObject {
-  var fs: FileSystemObject = new FileSystemObjectClass();
-  try {
-    return (new ShellClass()).NameSpace(fs.GetParentFolderName(linkPath)).ParseName(fs.GetFileName(linkPath)).GetLink;
-  } finally {
-    Marshal.FinalReleaseComObject(fs);
-    fs = null;
-  }
-}
-
-/**
- * Get the partial "arguments" property string of the custom icon link.
- * The command is partial because it does not include the markdown file path string.
- * The markdown file path string will be input when calling the shortcut link.
- * @returns {string} the "arguments" property of the custom icon link.
- */
-function GetCustomIconLinkArguments() {
-  return Format('-ep Bypass -nop -w Hidden -f "{0}" -Markdown', ChangeScriptExtension('.ps1'));
 }
 
 /**

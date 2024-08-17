@@ -2,13 +2,6 @@
  * @file WMI classes as inspired by mgmclassgen.exe.
  * @version 0.0.1
  */
-import System;
-import System.Diagnostics;
-import System.Runtime.InteropServices;
-import System.Reflection;
-import WbemScripting;
-
-[assembly: AssemblyTitle('StdRegProv WIM')]
 
 package ROOT.CIMV2 {
 
@@ -160,19 +153,6 @@ package ROOT.CIMV2 {
       // Append 33 1's to the 32-bit representation of hDefKey
       // to get the value read by the parameter hDefKey.
       return Convert.ToInt32(Convert.ToInt64(hDefKey) | 0x1FFFFFFFF00000000);
-    }
-  }
-
-  internal abstract class Util {
-
-    /**
-     * Get the name of the method calling this method.
-     * NOTE: the method should initialize the stackTrace variable in its scope
-     * before calling GetMethodName. So avoid GetMethodName(new stackTrace()).
-     * @param stackTrace is the stack trace from the calling method.
-     */
-    public static function GetMethodName(stackTrace: StackTrace): String {
-      return stackTrace.GetFrame(0).GetMethod().Name;
     }
   }
 }
