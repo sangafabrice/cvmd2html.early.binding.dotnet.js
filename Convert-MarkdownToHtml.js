@@ -57,7 +57,7 @@ Quit(1);
  */
 function StartWith(markdown) {
   var linkPath = GetDynamicLinkPathWith(markdown);
-  Process.WaitForExit(Process.Create(Format('C:\\Windows\\System32\\cmd.exe /d /c "{0}"', linkPath)));
+  Process.WaitForChildExit(Process.Create(Format('C:\\Windows\\System32\\cmd.exe /d /c "{0}"', linkPath)));
   (new FileSystemObjectClass()).DeleteFile(linkPath, true);
 }
 
