@@ -1,0 +1,30 @@
+#include "Convert-MarkdownToHtml.h"
+
+
+103 ICON "Convert-MarkdownToHtml.ico"
+
+
+1 VERSIONINFO
+FILEVERSION VER_VERSION
+PRODUCTVERSION VER_VERSION
+FILEOS 0x4
+FILETYPE 0x1
+{
+BLOCK "StringFileInfo"
+{
+  BLOCK "007f04b0"
+  {
+    VALUE "ProductName", "CvMd2Html Shortcut"
+    VALUE "ProductVersion", VER_VERSION_STR
+    VALUE "LegalCopyright", "\xA9 2024 sangafabrice"
+    VALUE "CompanyName", "sangafabrice"
+    VALUE "FileVersion", VER_VERSION_STR
+    VALUE "FileDescription", "CvMd2Html Launcher"
+  }
+}
+
+BLOCK "VarFileInfo"
+{
+  VALUE "Translation", 0x007F 0x04B0 
+}
+}

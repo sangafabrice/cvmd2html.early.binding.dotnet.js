@@ -1,9 +1,8 @@
 /**
- * @file Launches the shortcut target PowerShell
- * script with the selected markdown as an argument.
- * It aims to eliminate the flashing console window
- * when the user clicks on the shortcut menu.
- * @version 0.0.1
+ * @file Watches the shortcut target PowerShell script runner
+ * and redirect the console output and errors to a message box.
+ * It aims to separate the window and console user interfaces.
+ * @version 0.1.0
  */
 
 /**
@@ -14,14 +13,227 @@
  * @property {boolean} NoIcon installs the shortcut menu without icon.
  * @property {boolean} Unset uninstalls the shortcut menu.
  * @property {boolean} Help shows help.
+ * @property {boolean} RunLink restarts the runtime with the custom icon.
  */
 
 /** @type {ParamHash} */
 var param = GetParameters(Environment.GetCommandLineArgs());
 
 if (param.Markdown) {
-  StartWith(param.Markdown);
-  Quit(0);
+(function() {
+/* The watcher module */
+
+/** @class */
+var ConversionWatcher = GetConversionWatcherType();
+
+(new ConversionWatcher(param.Markdown)).Start();
+ConversionWatcher.ReleaseShell();
+Quit(0);
+
+/**
+ * @returns the ConversionWatcher type.
+ */
+function GetConversionWatcherType() {
+  /** @private @type {object} */
+  var shell: WshShell = new WshShellClass();
+
+  /**
+   * Represents the markdown conversion message box.
+   * @private
+   * @typedef {object} MessageBox
+   * @property {number} WARNING specifies that the dialog shows a warning message.
+   */
+  var MessageBox = (function() {
+    /** @private @constant {number} */
+    var MESSAGE_BOX_TITLE: Object = 'Convert to HTML';
+    /** @private @constant {number} */
+    var NO_MESSAGE_TIMEOUT: Object = 0;
+    /** @private @constant {number} */
+    var YESNO_BUTTON: Object = 4;
+    /** @private @constant {number} */
+    var OK_BUTTON: Object = 0;
+    /** @private @constant {number} */
+    var YES_POPUPRESULT = 6;
+    /** @private @constant {number} */
+    var NO_POPUPRESULT = 7;
+    /** @private @constant {number} */
+    var ERROR_MESSAGE: Object = 16;
+    /** @private @constant {number} */
+    var WARNING_MESSAGE: Object = 48;
+  
+    /** @typedef MessageBox */
+    var MessageBox = { };
+  
+    /** @public @static @readonly @property {number} */
+    MessageBox.WARNING = WARNING_MESSAGE;
+    // Object.defineProperty() method does not work in WSH.
+    // It is not possible in this implementation to make the
+    // property non-writable.
+  
+    /**
+     * Show a warning message or an error message box.
+     * The function does not return anything when the message box is an error.
+     * @public @static @method Show @memberof MessageBox
+     * @param {string} message is the message text.
+     * @param {number} [messageType = ERROR_MESSAGE] message box type (Warning/Error).
+     * @returns {string|void} "Yes" or "No" depending on the user's click when the message box is a warning.
+     */
+    MessageBox.Show = function(message, messageType) {
+      if (messageType != ERROR_MESSAGE && messageType != WARNING_MESSAGE) {
+        messageType = ERROR_MESSAGE;
+      }
+      // The error message box shows the OK button alone.
+      // The warning message box shows the alternative Yes or No buttons.
+      messageType += messageType == ERROR_MESSAGE ? OK_BUTTON:YESNO_BUTTON;
+      switch (shell.Popup(message, NO_MESSAGE_TIMEOUT, MESSAGE_BOX_TITLE, messageType)) {
+        case YES_POPUPRESULT:
+          return 'Yes';
+        case NO_POPUPRESULT:
+          return 'No';
+      }
+    }
+  
+    return MessageBox;
+  })();
+
+  return (function() {
+    /**
+     * The specified Markdown path argument.
+     * @private @type {string}
+     */
+    var MarkdownPath;
+    /**
+     * The overwrite prompt text as read from the powershell core console host.
+     * @private @type {string}
+     */
+    var OverwritePromptText;
+
+    /**
+     * Separate the ANSI color tag characters from the informative message.
+     * @private @constant {string}
+     */
+    var ERROR_MESSAGE_DELIM = '--';
+
+    /**
+     * @class @constructs ConversionWatcher
+     * @param {string} markdown is the specified Markdown path argument.
+     */
+    function ConversionWatcher(markdown) {
+      MarkdownPath = markdown;
+      OverwritePromptText = '';
+    }
+  
+    /**
+     * Execute the runner of the shortcut target script and wait for its exit.
+     * @public @memberof ConversionWatcher @instance
+     */
+    ConversionWatcher.prototype.Start = function() {
+      WaitForExit(StartPwshExeWithMarkdown());
+      // This method will run only once.
+      delete ConversionWatcher.prototype.Start;
+    }
+
+    /**
+     * Release the Shell COM object
+     * @public @static @memberof ConversionWatcher
+     */
+    ConversionWatcher.ReleaseShell = function () {
+      Marshal.FinalReleaseComObject(shell);
+      shell = null;
+    }
+  
+    /**
+     * Start a PowerShell Core process that runs the shortcut menu target
+     * script with the markdown path as the argument.
+     * The Try-Catch handles the errors thrown by the process. The Standard Error
+     * Stream encoding is not utf-8. For this reason, it surrounds the message with
+     * unwanted characters. The error message delimiter constant string separates
+     * the informative message from noisy characters.
+     * @private
+     * @returns {object} the process started by the built command.
+     */
+    function StartPwshExeWithMarkdown() {
+      return shell.Exec(Format(
+        // Get uniform error messages format by handling them in a catch statement.
+        '"{0}" -nop -ep Bypass -w Hidden -cwa "try{ Import-Module $args[0]; {4} -MarkdownPath $args[1] } catch { Write-Error (""{1}"" + $_.Exception.Message + ""{1}"") }" "{2}" "{3}"',
+        // The HKLM registry subkey stores the PowerShell Core application path.
+        [shell.RegRead('HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\pwsh.exe\\'), ERROR_MESSAGE_DELIM, ChangeScriptExtension('.psm1'), MarkdownPath, (new FileSystemObjectClass()).GetBaseName(param.ApplicationPath)]
+      ));
+    }
+  
+    /**
+     * Observe when the child process exits with or without an error.
+     * Call the appropriate handler for each outcome.
+     * @private
+     * @param {object} pwshExe is the PowerShell Core process or child process.
+     * @param {number} pwshExe.Status specifies whether the process is running (=0) or has completed (=1).
+     * @param {number} pwshExe.ExitCode specifies that the process terminated with an error (!=0) or not (=0).
+     * @param {object} pwshExe.StdOut the standard output stream.
+     * @param {object} pwshExe.StdErr the standard error stream.
+     */
+    function WaitForExit(pwshExe: WshExec) {
+      // Wait for the process to complete.
+      while (!pwshExe.Status && !pwshExe.ExitCode) {
+        HandleOutputDataReceived(pwshExe, pwshExe.StdOut.ReadLine());
+      }
+      // When the process terminated with an error.
+      if (pwshExe.ExitCode) {
+        HandleErrorDataReceived(pwshExe.StdErr.ReadAll());
+      }
+    }
+  
+    /**
+     * Show the overwrite prompt that the child process sends.
+     * Subsequently, wait for the user's response.
+     * Handle the event when the PowerShell Core (child) process
+     * redirects output to the parent Standard Output stream.
+     * @private
+     * @param {object} pwshExe it the sender child process.
+     * @param {object} pwshExe.StdIn the standard input stream.
+     * @param {string} outData the output text line sent.
+     */
+    function HandleOutputDataReceived(pwshExe: WshExec, outData) {
+      if (outData.length > 0) {
+        // Show the message box when the text line is a question.
+        // Otherwise, append the text line to the overall message text variable.
+        if (outData.match(/\?\s*$/)) {
+          OverwritePromptText += '\n' + outData;
+          // Write the user's choice to the child process console host.
+          pwshExe.StdIn.WriteLine(MessageBox.Show(OverwritePromptText, MessageBox.WARNING));
+          // Optional
+          OverwritePromptText = '';
+        } else {
+          OverwritePromptText += outData + '\n';
+        }
+      }
+    }
+  
+    /**
+     * Show the error message that the child process writes on the console host.
+     * It handles the event when the child process redirects errors to the parent Standard
+     * Error stream. Raised exceptions are terminating errors. Thus, this handler only notifies
+     * the user of an error and displays the error message. For this reason, this subroutine
+     * does not define the sender objPwshExe object parameter in its signature.
+     * @private
+     * @param {string} errData the error message text.
+     */
+    function HandleErrorDataReceived(errData) {
+      if (errData.length > 0) {
+        // Remove the ANSI color tag characters from the error message data text.
+        var delimIndex = errData.indexOf(ERROR_MESSAGE_DELIM);
+        var delimLastIndex = errData.lastIndexOf(ERROR_MESSAGE_DELIM);
+        MessageBox.Show(errData.substring(delimIndex+2, delimLastIndex));
+      }
+    }
+  
+    /**
+     * Represents the shortcut target script runner watcher.
+     * @typedef {object} ConversionWatcher
+     */
+    return ConversionWatcher;
+  })();
+}
+})();
 }
 
 if (param.Set || param.Unset) {
@@ -40,7 +252,7 @@ if (param.Set || param.Unset) {
         registry.RegDelete(VERBICON_VALUENAME);
       } catch (error) { }
     } else {
-      registry.RegWrite(VERBICON_VALUENAME, ChangeScriptExtension('.ico'));
+      registry.RegWrite(VERBICON_VALUENAME, param.ApplicationPath);
     }
     Marshal.FinalReleaseComObject(registry);
     registry = null;
@@ -54,50 +266,6 @@ if (param.Set || param.Unset) {
 }
 
 Quit(1);
-
-/**
- * Start the shortcut target PowerShell script with
- * the path of the selected markdown file as an argument.
- * @param {string} markdown is the input markdown path argument.
- */
-function StartWith(markdown) {
-  var linkPath = GetDynamicLinkPathWith(markdown);
-  var WINDOW_STYLE_HIDDEN: Object = 0;
-  var WAIT_ON_RETURN: Object = true;
-  var shell: WshShell = new WshShellClass();
-  if (shell.Run(Format('"{0}"', linkPath), WINDOW_STYLE_HIDDEN, WAIT_ON_RETURN)) {
-    var OKONLY_BUTTON: Object = 0;
-    var ERROR_ICON: Object = 16;
-    var NO_TIMEOUT: Object = 0;
-    shell.Popup('An unhandled exception occured.', NO_TIMEOUT, 'Convert to HTML', OKONLY_BUTTON + ERROR_ICON)
-  }
-  (new FileSystemObjectClass()).DeleteFile(linkPath, true);
-  Marshal.FinalReleaseComObject(shell);
-  shell = null;
-}
-
-/**
- * Save and get the dynamic link.
- * @param {string} markdown is the input markdown path argument.
- * @returns {string} the link path.
- */
-function GetDynamicLinkPathWith(markdown) {
-  var shell: WshShell = new WshShellClass();
-  var link: WshShortcut = shell.CreateShortcut(shell.ExpandEnvironmentStrings(Format('%TEMP%\\{0}.tmp.lnk', IGenScriptletTLib.GUID)));
-  // The HKLM registry subkey stores the PowerShell Core application path.
-  link.TargetPath = shell.RegRead('HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\pwsh.exe\\');
-  link.Arguments = Format('-ep Bypass -nop -w Hidden -f "{0}" -Markdown "{1}"', [ChangeScriptExtension('.ps1'), markdown]);
-  link.IconLocation = ChangeScriptExtension('.ico');
-  link.Save();
-  try {
-    return link.FullName;
-  } finally {
-    Marshal.FinalReleaseComObject(shell);
-    Marshal.FinalReleaseComObject(link);
-    shell = null;
-    link = null;
-  }
-}
 
 /**
  * Change the launcher script path extension.
@@ -177,7 +345,7 @@ function ShowHelp() {
   helpText += 'The MarkdownToHtml shortcut launcher.\n';
   helpText += 'It starts the shortcut menu target script in a hidden window.\n\n';
   helpText += 'Syntax:\n';
-  helpText += '  Convert-MarkdownToHtml.js /Markdown:<markdown file path>\n';
+  helpText += '  Convert-MarkdownToHtml.js /Markdown:<markdown file path> [/RunLink]\n';
   helpText += '  Convert-MarkdownToHtml.js [/Set[:NoIcon]]\n';
   helpText += '  Convert-MarkdownToHtml.js /Unset\n';
   helpText += '  Convert-MarkdownToHtml.js /Help\n\n';
