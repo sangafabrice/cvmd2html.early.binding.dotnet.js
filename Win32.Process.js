@@ -55,17 +55,11 @@ package ROOT.CIMV2.WIN32 {
      * @param {number} ParentProcessId is the parent process identifier.
      */
     public static function WaitForChildExit(ParentProcessId: uint) {
-      var wmiService: SWbemServices = (new SWbemLocatorClass()).ConnectServer();
-      var wmiQuery = 'SELECT * FROM Win32_Process WHERE ParentProcessId=' + ParentProcessId;
-      var getProcess = function() {
-        return (new Enumerator(wmiService.ExecQuery(wmiQuery))).item();
-      }
-      // Wait for the process to start.
-      while (getProcess() == null) { }
+      // The process termination event query.
+      // Select the process whose parent is the intermediate process used for executing the link.
+      var wmiQuery = 'SELECT * FROM __InstanceDeletionEvent WITHIN 1 WHERE TargetInstance ISA "Win32_Process" AND TargetInstance.ParentProcessId=' + ParentProcessId;
       // Wait for the process to exit.
-      while (getProcess() != null) { }
-      Marshal.FinalReleaseComObject(wmiService);
-      wmiService = null;
+      (new SWbemLocatorClass()).ConnectServer().ExecNotificationQuery(wmiQuery).NextEvent();
     }
   }
 
