@@ -126,14 +126,6 @@ function GetContent(filePath) {
 }
 
 /**
- * This suggests that the library is in the same folder as the current script.
- * @returns {string} the showdown Javascript library path.
- */
-function GetJsLibrary() {
-  return fs.GetParentFolderName(param.ApplicationPath) + '\\showdown.min.js';
-}
-
-/**
  * Convert a markdown content to an html document.
  * @param {string} mardownContent is the content to convert.
  * @returns {string} the output html document content. 
@@ -142,25 +134,7 @@ function ConvertFrom(markdownContent) {
   // Build the HTML document that will load the showdown.js library.
   var document: HTMLDocumentClass = new HTMLDocumentClass();
   document.open();
-  document.IHTMLDocument2_write(
-    '<!DOCTYPE html>' +
-    '<html>' +
-    '<head>' +
-      '<meta charset="UTF-8" />' +
-      '<meta http-equiv="X-UA-Compatible" content="IE=edge" />' +
-      '<script type="text/javascript">' +
-        GetContent(GetJsLibrary()) +
-      '</script>' +
-      '<script type="text/javascript">' +
-        'function convertMarkdown() {' +
-          'document.body.innerHTML = (new showdown.Converter()).makeHtml(document.body.innerText);' +
-        '}' +
-      '</script>' +
-    '</head>' +
-    '<body>' +
-    '</body>' +
-    '</html>'
-  );
+  document.IHTMLDocument2_write(GetBytes(GetContent(ChangeScriptExtension('.html'))));
   document.close();
   document.body.innerText = markdownContent;
   document.parentWindow.execScript('convertMarkdown()', 'javascript');
@@ -170,6 +144,33 @@ function ConvertFrom(markdownContent) {
     if (document != undefined) {
       Marshal.FinalReleaseComObject(document);
       document = null;
+    }
+  }
+}
+
+/**
+ * Convert a text string to a unicode text string.
+ * @param {string} content is the text to convert.
+ * @returns {string} a byte encoded string.
+ */
+function GetBytes(content) {
+  var stream: Stream = new StreamClass();
+  var TEXT_TYPE = 2;
+  var READWRITE_MODE = 3;
+  var BYTE_MODE = 1;
+  // Write content in text mode.
+  stream.Type = TEXT_TYPE;
+  stream.Mode = READWRITE_MODE;
+  stream.Open();
+  stream.WriteText(content);
+  // Start reading from the first byte.
+  stream.Position = 0;
+  stream.Type = BYTE_MODE;
+  try {
+    return stream.Read();
+  } finally {
+    if (stream != undefined) {
+      stream.Close();
     }
   }
 }
