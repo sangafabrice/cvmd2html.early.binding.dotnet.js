@@ -26,9 +26,8 @@ if (param.Markdown) {
 
 if (param.Set || param.Unset) {
   var VERB_KEY = 'SOFTWARE\\Classes\\SystemFileAssociations\\.md\\shell\\cthtml';
-  var KEY_FORMAT = 'HKCU\\{0}\\';
   if (param.Set) {
-    var VERB_KEY = Format(KEY_FORMAT, VERB_KEY);
+    var VERB_KEY = Format('HKCU\\{0}\\', VERB_KEY);
     var COMMAND_KEY = VERB_KEY + 'command\\';
     var VERBICON_VALUENAME = VERB_KEY + 'Icon';
     var registry: WshShell = new WshShellClass();
@@ -48,25 +47,8 @@ if (param.Set || param.Unset) {
   } else if (param.Unset) {
     // Remove the shortcut menu.
     // Remove the verb key and subkeys.
-    // Recursion is used because a key with subkeys cannot be deleted.
-    // Recursion helps removing the leaf keys first.
     var HKCU = 0x80000001;
-    var deleteVerbKey = function(key) {
-      var recursive = function func(key) {
-        var sNames = StdRegProv.EnumKey(HKCU, key);
-        if (sNames != null) {
-          for (var index = 0; index < sNames.length; index++) {
-            func(Format('{0}\\{1}', [key, sNames[index]]));
-          }
-        }
-        try {
-          (new WshShellClass()).RegDelete(Format(KEY_FORMAT, key));
-        } catch (error) { }
-      };
-      recursive(key);
-    }
-    deleteVerbKey(VERB_KEY);
-    deleteVerbKey = null;
+    StdRegProv.DeleteKeyTree(HKCU, VERB_KEY);
   }
   Quit(0);
 }

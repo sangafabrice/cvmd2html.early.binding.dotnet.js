@@ -36,7 +36,6 @@ Function Build-MarkdownToHtmlShortcut {
     Write-Host
     Return
   }
-  Remove-Item ($StdRegProvDll = "$PSScriptRoot\StdRegProv.dll") -ErrorAction SilentlyContinue
   Remove-Item ($SWbemDllPath = "$PSScriptRoot\Interop.WbemScripting.dll") -ErrorAction SilentlyContinue
   Remove-Item ($WshDllPath = "$PSScriptRoot\Interop.IWshRuntimeLibrary.dll") -ErrorAction SilentlyContinue
   Remove-Item ($ScriptletDllPath = "$PSScriptRoot\Interop.Scriptlet.dll") -ErrorAction SilentlyContinue
@@ -47,8 +46,7 @@ Function Build-MarkdownToHtmlShortcut {
   # Compile the launcher script into an .exe file of the same base name.
   $EnvPath = $Env:Path
   $Env:Path = "$Env:windir\Microsoft.NET\Framework$(If ([Environment]::Is64BitOperatingSystem) { '64' })\v4.0.30319\;$Env:Path"
-  jsc.exe /nologo /target:library /reference:$SWbemDllPath /out:$StdRegProvDll /define:StdRegProvWim "$PSScriptRoot\AssemblyInfo.js" "$PSScriptRoot\StdRegProv.js"
-  jsc.exe /nologo /target:$($DebugPreference -eq 'Continue' ? 'exe':'winexe') /reference:$ScriptletDllPath /reference:$SWbemDllPath /reference:$WshDllPath /reference:$StdRegProvDll /out:$(($ConvertExe = Set-ConvertMd2HtmlExtension '.exe')) "$PSScriptRoot\AssemblyInfo.js" $(Set-ConvertMd2HtmlExtension '.js')
+  jsc.exe /nologo /target:$($DebugPreference -eq 'Continue' ? 'exe':'winexe') /reference:$ScriptletDllPath /reference:$SWbemDllPath /reference:$WshDllPath /out:$(($ConvertExe = Set-ConvertMd2HtmlExtension '.exe')) "$PSScriptRoot\AssemblyInfo.js" "$PSScriptRoot\StdRegProv.js" $(Set-ConvertMd2HtmlExtension '.js')
   $Env:Path = $EnvPath
   If ($LASTEXITCODE -eq 0) {
     Write-Host "Output file $ConvertExe written." @HostColorArgs

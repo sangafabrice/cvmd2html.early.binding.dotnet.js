@@ -9,6 +9,24 @@ package ROOT.CIMV2 {
 
     private static var CreatedClassName: String = 'StdRegProv';
 
+    public static function DeleteKey(hDefKey: uint, sSubKeyName: String): uint {
+      var stackTrace: StackTrace = new StackTrace();
+      var methodName: String = Util.GetMethodName(stackTrace);
+      var classObj: SWbemObject = (new SWbemLocatorClass()).ConnectServer().Get(CreatedClassName);
+      var inParams = null;
+      inParams = classObj.Methods_.Item(methodName).InParameters.SpawnInstance_();
+      inParams.Properties_.Item('hDefKey').Value = GetKeyHiveValue(hDefKey);
+      inParams.Properties_.Item('sSubKeyName').Value = sSubKeyName;
+      try {
+        return Convert.ToUInt32(classObj.ExecMethod_(methodName, inParams).Properties_.Item('ReturnValue').Value);
+      } finally {
+        Marshal.FinalReleaseComObject(classObj);
+        Marshal.FinalReleaseComObject(inParams);
+        classObj = null;
+        inParams = null;
+      }
+    }
+    
     public static function EnumKey(hDefKey: uint, sSubKeyName: String): String[] {
       var stackTrace: StackTrace = new StackTrace();
       var methodName: String = Util.GetMethodName(stackTrace);
@@ -33,6 +51,21 @@ package ROOT.CIMV2 {
         classObj = null;
         inParams = null;
       }
+    }
+
+    /**
+     * Remove the key and all descendant subkeys.
+     * @borrows DeleteKey as DeleteKeyTree
+     */
+    public static function DeleteKeyTree(hDefKey: uint, sSubKeyName: String): uint {
+      var returnValue: uint = 0;
+      var sNames = EnumKey(hDefKey, sSubKeyName);
+      if (sNames != null) {
+        for (var index = 0; index < sNames.length; index++) {
+          returnValue += DeleteKeyTree(hDefKey, sSubKeyName + '\\' + sNames[index]);
+        }
+      }
+      return (returnValue += DeleteKey(hDefKey, sSubKeyName));
     }
 
     /**
