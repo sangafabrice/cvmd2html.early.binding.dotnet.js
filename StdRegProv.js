@@ -2,10 +2,6 @@
  * @file WMI classes as inspired by mgmclassgen.exe.
  * @version 0.0.1
  */
-import System.Diagnostics;
-import WbemScripting;
-
-[assembly: AssemblyTitle('StdRegProv WIM')]
 
 package ROOT.CIMV2 {
 
