@@ -6,8 +6,6 @@
  * @version 0.0.1
  */
 
-RequestAdminPrivileges(Environment.GetCommandLineArgs())
-
 /**
  * The parameters and arguments.
  * @typedef {object} ParamHash
@@ -40,7 +38,7 @@ if (param.Set || param.Unset) {
     if (param.NoIcon) {
       StdRegProv.DeleteValue(HKCU, VERB_KEY, iconValueName);
     } else {
-      StdRegProv.SetStringValue(HKCU, VERB_KEY, iconValueName, ChangeScriptExtension('.ico'));
+      StdRegProv.SetStringValue(HKCU, VERB_KEY, iconValueName, param.ApplicationPath);
     }
   } else if (param.Unset) {
     // Remove the shortcut menu.
@@ -82,7 +80,7 @@ function GetDynamicLinkPathWith(markdown) {
   var link: ShellLinkObject = (new ShellClass()).NameSpace(tempDir).ParseName(tempLinkName).GetLink;
   link.Path = GetPwshPath();
   link.Arguments = Format('-ep Bypass -nop -w Hidden -f "{0}" -Markdown "{1}"', [ChangeScriptExtension('.ps1'), markdown]);
-  link.SetIconLocation(ChangeScriptExtension('.ico'), 0);
+  link.SetIconLocation(param.ApplicationPath, 0);
   link.Save();
   Marshal.FinalReleaseComObject(link);
   link = null;
@@ -196,22 +194,4 @@ function ShowHelp() {
 function Quit(exitCode) {
   GC.Collect();
   Environment.Exit(exitCode);
-}
-
-/**
- * Request administrator privileges is standard user.
- * @param {string[]} args is the list of command line arguments including the command path.
- */
-function RequestAdminPrivileges(args) {
-  var HKU: uint = 0x80000003;
-  if (StdRegProv.CheckAccess(HKU, 'S-1-5-19\\Environment')) {
-    return;
-  }
-  var inputCommand = '';
-  for (var index = 1; index < args.length; index++) {
-    inputCommand += Format(' "{0}"', args[index]);
-  }
-  var WINDOW_STYLE_HIDDEN = 0;
-  (new ShellClass()).ShellExecute(args[0], inputCommand, null, "runas", WINDOW_STYLE_HIDDEN)
-  Quit(0);
 }

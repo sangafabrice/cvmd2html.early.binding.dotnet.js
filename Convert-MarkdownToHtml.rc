@@ -1,0 +1,45 @@
+#include "Convert-MarkdownToHtml.h"
+
+
+#ifdef CVMD2HTML
+103 ICON "Convert-MarkdownToHtml.ico"
+#endif
+
+
+1 VERSIONINFO
+FILEVERSION VER_VERSION
+PRODUCTVERSION VER_VERSION
+FILEOS 0x4
+FILETYPE 0x1
+{
+BLOCK "StringFileInfo"
+{
+  BLOCK "007f04b0"
+  {
+    VALUE "ProductName", "CvMd2Html Shortcut"
+    VALUE "ProductVersion", VER_VERSION_STR
+    VALUE "LegalCopyright", "\xA9 2024 sangafabrice"
+    VALUE "CompanyName", "sangafabrice"
+    VALUE "FileVersion", VER_VERSION_STR
+#ifdef CVMD2HTML
+    VALUE "FileDescription", "CvMd2Html Launcher"
+#endif
+#ifdef STDREGPROV
+    VALUE "FileDescription", "StdRegProv WIM"
+#endif
+#ifdef WIN32PROCESS
+    VALUE "FileDescription", "Win32_Process WIM"
+#endif
+  }
+}
+
+BLOCK "VarFileInfo"
+{
+  VALUE "Translation", 0x007F 0x04B0 
+}
+}
+
+
+#ifdef CVMD2HTML
+1 24 "manifest.xml"
+#endif

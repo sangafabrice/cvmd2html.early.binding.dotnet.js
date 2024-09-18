@@ -42,6 +42,13 @@ Function Build-MarkdownToHtmlShortcut {
   Remove-Item ($WshDllPath = "$PSScriptRoot\Interop.IWshRuntimeLibrary.dll") -ErrorAction SilentlyContinue
   Remove-Item ($ShellDllPath = "$PSScriptRoot\Interop.Shell32.dll") -ErrorAction SilentlyContinue
   Remove-Item ($ScriptletDllPath = "$PSScriptRoot\Interop.Scriptlet.dll") -ErrorAction SilentlyContinue
+  Remove-Item ($TargetInfoResFile = Set-ConvertMd2HtmlExtension '.res') -ErrorAction SilentlyContinue
+  Remove-Item ($StdRegProvResFile = "$PSScriptRoot\StdRegProv.res") -ErrorAction SilentlyContinue
+  Remove-Item ($Win32ProcessResFile = "$PSScriptRoot\Win32.Process.res") -ErrorAction SilentlyContinue
+  # Set the windows resources file with the resource compiler.
+  & "$PSScriptRoot\rc.exe" /nologo /fo $TargetInfoResFile /d CVMD2HTML $(Set-ConvertMd2HtmlExtension '.rc')
+  & "$PSScriptRoot\rc.exe" /nologo /fo $StdRegProvResFile /d STDREGPROV $(Set-ConvertMd2HtmlExtension '.rc')
+  & "$PSScriptRoot\rc.exe" /nologo /fo $Win32ProcessResFile /d WIN32PROCESS $(Set-ConvertMd2HtmlExtension '.rc')
   # Import the dependency libraries.
   & "$PSScriptRoot\TlbImp.exe" /nologo /silent 'C:\Windows\System32\wshom.ocx'  /out:$WshDllPath /namespace:IWshRuntimeLibrary
   & "$PSScriptRoot\TlbImp.exe" /nologo /silent 'C:\Windows\System32\wbem\wbemdisp.tlb' /out:$SWbemDllPath /namespace:WbemScripting
@@ -50,9 +57,9 @@ Function Build-MarkdownToHtmlShortcut {
   # Compile the launcher script into an .exe file of the same base name.
   $EnvPath = $Env:Path
   $Env:Path = "$Env:windir\Microsoft.NET\Framework$(If ([Environment]::Is64BitOperatingSystem) { '64' })\v4.0.30319\;$Env:Path"
-  jsc.exe /nologo /target:library /reference:$SWbemDllPath /out:$StdRegProvDll /define:StdRegProvWim "$PSScriptRoot\AssemblyInfo.js" "$PSScriptRoot\StdRegProv.js"
-  jsc.exe /nologo /target:library /reference:$SWbemDllPath /out:$Win32ProcessDll /define:Win32ProcessWim "$PSScriptRoot\AssemblyInfo.js" "$PSScriptRoot\Win32.Process.js"
-  jsc.exe /nologo /target:$($DebugPreference -eq 'Continue' ? 'exe':'winexe') /reference:$ScriptletDllPath /reference:$SWbemDllPath /reference:$WshDllPath /reference:$ShellDllPath /reference:$StdRegProvDll /reference:$Win32ProcessDll /out:$(($ConvertExe = Set-ConvertMd2HtmlExtension '.exe')) "$PSScriptRoot\AssemblyInfo.js" $(Set-ConvertMd2HtmlExtension '.js')
+  jsc.exe /nologo /target:library /reference:$SWbemDllPath /win32res:$StdRegProvResFile /out:$StdRegProvDll /define:StdRegProvWim "$PSScriptRoot\AssemblyInfo.js" "$PSScriptRoot\StdRegProv.js"
+  jsc.exe /nologo /target:library /reference:$SWbemDllPath /win32res:$Win32ProcessResFile /out:$Win32ProcessDll /define:Win32ProcessWim "$PSScriptRoot\AssemblyInfo.js" "$PSScriptRoot\Win32.Process.js"
+  jsc.exe /nologo /target:$($DebugPreference -eq 'Continue' ? 'exe':'winexe') /win32res:$TargetInfoResFile /reference:$ScriptletDllPath /reference:$SWbemDllPath /reference:$WshDllPath /reference:$ShellDllPath /reference:$StdRegProvDll /reference:$Win32ProcessDll /out:$(($ConvertExe = Set-ConvertMd2HtmlExtension '.exe')) "$PSScriptRoot\AssemblyInfo.js" $(Set-ConvertMd2HtmlExtension '.js')
   $Env:Path = $EnvPath
   If ($LASTEXITCODE -eq 0) {
     Write-Host "Output file $ConvertExe written." @HostColorArgs
