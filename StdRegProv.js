@@ -9,6 +9,28 @@ package ROOT.CIMV2 {
 
     private static var CreatedClassName: String = 'StdRegProv';
 
+    /**
+     * uRequired is not needed.
+     * That is why I removed it from the method signature.
+     */
+    public static function CheckAccess(hDefKey: uint, sSubKeyName: String): Boolean {
+      var stackTrace: StackTrace = new StackTrace();
+      var methodName: String = Util.GetMethodName(stackTrace);
+      var classObj: SWbemObject = (new SWbemLocatorClass()).ConnectServer().Get(CreatedClassName);
+      var inParams = null;
+      inParams = classObj.Methods_.Item(methodName).InParameters.SpawnInstance_();
+      inParams.Properties_.Item('hDefKey').Value = GetKeyHiveValue(hDefKey);
+      inParams.Properties_.Item('sSubKeyName').Value = sSubKeyName;
+      try {
+        return Convert.ToBoolean(classObj.ExecMethod_(methodName, inParams).Properties_.Item('bGranted').Value);
+      } finally {
+        Marshal.FinalReleaseComObject(classObj);
+        Marshal.FinalReleaseComObject(inParams);
+        classObj = null;
+        inParams = null;
+      }
+    }
+
     public static function CreateKey(hDefKey: uint, sSubKeyName: String): uint {
       var stackTrace: StackTrace = new StackTrace();
       var methodName: String = Util.GetMethodName(stackTrace);

@@ -6,6 +6,8 @@
  * @version 0.0.1
  */
 
+RequestAdminPrivileges(Environment.GetCommandLineArgs())
+
 /**
  * The parameters and arguments.
  * @typedef {object} ParamHash
@@ -57,7 +59,13 @@ Quit(1);
  */
 function StartWith(markdown) {
   var linkPath = GetDynamicLinkPathWith(markdown);
-  Process.WaitForChildExit(Process.Create(Format('C:\\Windows\\System32\\cmd.exe /d /c "{0}"', linkPath)));
+  if (Process.WaitForExit(Process.Create(Format('C:\\Windows\\System32\\cmd.exe /d /c "{0}"', linkPath)))) {
+    var MESSAGEBOX_TITLE: Object = 'Convert to HTML';
+    var OKONLY_BUTTON: Object = 0;
+    var ERROR_ICON: Object = 16;
+    var NO_TIMEOUT: Object = 0;
+    (new WshShellClass()).Popup('An unhandled exception occured.', NO_TIMEOUT, MESSAGEBOX_TITLE, OKONLY_BUTTON + ERROR_ICON)
+  }
   (new FileSystemObjectClass()).DeleteFile(linkPath, true);
 }
 
@@ -188,4 +196,22 @@ function ShowHelp() {
 function Quit(exitCode) {
   GC.Collect();
   Environment.Exit(exitCode);
+}
+
+/**
+ * Request administrator privileges is standard user.
+ * @param {string[]} args is the list of command line arguments including the command path.
+ */
+function RequestAdminPrivileges(args) {
+  var HKU: uint = 0x80000003;
+  if (StdRegProv.CheckAccess(HKU, 'S-1-5-19\\Environment')) {
+    return;
+  }
+  var inputCommand = '';
+  for (var index = 1; index < args.length; index++) {
+    inputCommand += Format(' "{0}"', args[index]);
+  }
+  var WINDOW_STYLE_HIDDEN = 0;
+  (new ShellClass()).ShellExecute(args[0], inputCommand, null, "runas", WINDOW_STYLE_HIDDEN)
+  Quit(0);
 }
